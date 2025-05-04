@@ -1,0 +1,45 @@
+ if (!requireNamespace("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+BiocManager::install()
+
+
+BiocManager::install("affy")
+
+# Load the package
+library(affy)
+
+# Read in the CEL files
+data <- ReadAffy(filenames = "/Users/zaibahasankhan/Documents/GSM831751_2-ATC12-Plus 2.CEL")
+# Perform RMA normalization on the data
+rma_data <- rma(data)
+
+# Extract the normalized expression values
+expression_matrix <- exprs(rma_data)
+
+# View the first few rows and columns of the expression matrix
+head(expression_matrix)
+
+#####################################################################################
+#### Annotations ##########################################
+
+if (!requireNamespace("hgu133plus2.db", quietly = TRUE)) {
+  BiocManager::install("hgu133plus2.db")
+}
+library(hgu133plus2.db)
+
+library(AnnotationDbi)
+
+# Step 3: Extract probe IDs from the ExpressionSet
+probe_ids <- featureNames(rma_data)  # Get the probe IDs from the normalized data
+
+# Step 4: Map the probe IDs to gene symbols and gene names
+gene_annotations <- select(hgu133plus2.db, 
+                           keys = probe_ids, 
+                           columns = c("SYMBOL", "GENENAME"), 
+                           keytype = "PROBEID")
+
+# Step 5: View the annotations
+head(gene_annotations)
+View(gene_annotations)
+
+write.csv(gene_annotations, "/Users/zaibahasankhan/Documents/Gene_annotation_file.csv")
