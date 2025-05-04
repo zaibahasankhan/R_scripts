@@ -1,0 +1,114 @@
+# install limma
+if (!require("BiocManager", quietly = TRUE))
+  install.packages("BiocManager")
+
+BiocManager::install("limma")
+
+library(limma)
+
+# Read the expression data
+expr_matrix <- read.csv("/Users/zaibahasankhan/Documents/expression_matrix_thyroid.csv", row.names = 1)
+
+expr_matrix <- expr_matrix[1:54675,]
+
+# Read the metadata (group information)
+metadata <- read.csv("/Users/zaibahasankhan/Documents/metadata_thyroid.csv")
+
+# Create the design matrix based on the "Group" column in metadata
+group <- factor(metadata$Group)  # Define the experimental groups (Control, Treated)
+design <- model.matrix(~ group)  # Create the design matrix
+
+# Fit the linear model
+fit <- lmFit(expr_matrix, design)
+
+# Apply empirical Bayes moderation
+fit <- eBayes(fit)
+
+# Get the top differentially expressed genes
+top_genes <- topTable(fit, adjust.method = "BH", number = Inf, sort.by = "F")
+
+print(top_genes)
+
+# Define thresholds, 0.05b p value and log2FC=1
+p_value_threshold <- 0.05  # Adjusted p-value threshold
+logFC_threshold <- 1       # Absolute log fold change threshold
+
+str(top_genes)
+
+# View the first few rows of top_genes
+head(top_genes)
+
+# add logFC column
+top_genes$logFC <- top_genes$grouppapillary_thyroid_carcinoma - top_genes$groupnon_tumor_control
+
+# Filter for DEGs
+deg <- top_genes[abs(top_genes$logFC) > logFC_threshold & top_genes$adj.P.Val < p_value_threshold, ]
+
+# View the differentially expressed genes
+head(deg)
+deg <- top_genes[abs(top_genes$logFC) > logFC_threshold & top_genes$adj.P.Val < p_value_threshold, ]
+
+
+
+##### for more than 2 group comparison  ###
+
+#Define the experimental groups from the metadata
+group <- factor(metadata$Group)
+
+# Create the design matrix for the three groups
+design <- model.matrix(~ 0 + group)  # '0 +' removes the intercept
+colnames(design) <- levels(group)    # Name the columns as the group levels
+
+# Check the design matrix
+head(design)
+
+# Define the contrasts between the groups
+
+# Define the contrasts between the groups
+# Define contrasts based on your actual group names
+contrast_matrix <- makeContrasts(
+  Anaplastic_vs_Control = anaplastic_thyroid_carcinoma - non_tumor_control,
+  Anaplastic_vs_Papillary = anaplastic_thyroid_carcinoma - papillary_thyroid_carcinoma,
+  Papillary_vs_Control = papillary_thyroid_carcinoma - non_tumor_control,
+  levels = design
+)
+
+# View the contrast matrix
+contrast_matrix
+
+# Fit the linear model
+fit <- lmFit(expr_matrix, design)
+
+# Apply the contrast matrix to the fit object
+fit <- contrasts.fit(fit, contrast_matrix)
+
+# Apply empirical Bayes moderation
+fit <- eBayes(fit)
+
+
+# Anaplastic vs Control
+top_genes_Anaplastic_vs_Control <- topTable(fit, coef = "Anaplastic_vs_Control", adjust.method = "BH", number = Inf)
+
+# Anaplastic vs Papillary
+top_genes_Anaplastic_vs_Papillary <- topTable(fit, coef = "Anaplastic_vs_Papillary", adjust.method = "BH", number = Inf)
+
+# Papillary vs Control
+top_genes_Papillary_vs_Control <- topTable(fit, coef = "Papillary_vs_Control", adjust.method = "BH", number = Inf)
+
+
+# Set thresholds
+logFC_threshold <- 1
+p_value_threshold <- 0.05
+
+# Filter DEGs for Anaplastic vs Control
+deg_Anaplastic_vs_Control <- top_genes_Anaplastic_vs_Control[abs(top_genes_Anaplastic_vs_Control$logFC) > logFC_threshold & top_genes_Anaplastic_vs_Control$adj.P.Val < p_value_threshold, ]
+
+# Filter DEGs for Anaplastic vs Papillary
+deg_Anaplastic_vs_Papillary <- top_genes_Anaplastic_vs_Papillary[abs(top_genes_Anaplastic_vs_Papillary$logFC) > logFC_threshold & top_genes_Anaplastic_vs_Papillary$adj.P.Val < p_value_threshold, ]
+
+# Filter DEGs for Papillary vs Control
+deg_Papillary_vs_Control <- top_genes_Papillary_vs_Control[abs(top_genes_Papillary_vs_Control$logFC) > logFC_threshold & top_genes_Papillary_vs_Control$adj.P.Val < p_value_threshold, ]
+
+
+# save results 
+write.csv(deg_Papillary_vs_Control, "/Users/zaibahasankhan/Documents/deg_Papillary_vs_Control.csv")
